@@ -51,20 +51,6 @@ services:
       MSSQL_SA_PASSWORD: b8:,x5u36$7xD(86
       MSSQL_PID: Express
 
-  ops_sqlserver:
-    image: mcr.microsoft.com/mssql/server:2019-latest
-    container_name: ops_sqlserver
-    hostname: ops_sqlserver
-    restart: always
-    ports:
-      - "1433:1433"
-    networks:
-      - mlflow-network
-    environment:
-      ACCEPT_EULA: Y
-      MSSQL_SA_PASSWORD: b8:,x5u36$7xD(86
-      MSSQL_PID: Express
-
   mlflow:
     # Experimenation tracking, artifactory, model serving architecture in one package
     build:

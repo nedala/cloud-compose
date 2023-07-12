@@ -4,10 +4,10 @@ USER root
 # Add ZScaler Certs
 COPY certificates/*.crt /usr/local/share/ca-certificates/
 COPY certificates/*.crt /etc/ssl/certs/
-RUN cat /etc/ssl/certs/*.crt >> /etc/ssl/certs/cbp_bundle.crt
+RUN cat /etc/ssl/certs/*.crt >> /etc/ssl/certs/bundle.crt
 ENV SSL_CERT_DIR=/etc/ssl/certs/
-ENV SSL_CERT_FILE=/etc/ssl/certs/cbp_bundle.crt
-ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/cbp_bundle.crt
+ENV SSL_CERT_FILE=/etc/ssl/certs/bundle.crt
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/bundle.crt
 ENV PIP_CERT=${REQUESTS_CA_BUNDLE}
 
 RUN apt-get update && \

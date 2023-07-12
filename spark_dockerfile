@@ -5,10 +5,10 @@ USER root
 # Add ZScaler Certs
 COPY certificates/*.crt /etc/pki/ca-trust/source/anchors/
 COPY certificates/*.crt /etc/ssl/certs/
-RUN cat /etc/ssl/certs/*.crt >> /etc/ssl/certs/cbp_bundle.crt
+RUN cat /etc/ssl/certs/*.crt >> /etc/ssl/certs/bundle.crt
 ENV SSL_CERT_DIR=/etc/ssl/certs/
-ENV SSL_CERT_FILE=/etc/ssl/certs/cbp_bundle.crt
-ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/cbp_bundle.crt
+ENV SSL_CERT_FILE=/etc/ssl/certs/bundle.crt
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/bundle.crt
 RUN update-ca-trust
 
 # Install curl and wget
