@@ -1,0 +1,7 @@
+notebooks/.ipynb*
+huggingface
+jupyter_notebooks
+doc/.ipynb_checkpoints
+notebooks/.ipynb_checkpoints/*
+superset/superset.db
+superset/superset.db-journal

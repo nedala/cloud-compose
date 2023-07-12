@@ -1,0 +1,25 @@
+FROM apache/superset:2-1-py39
+# Switching to root to install the required packages
+USER root
+# Add ZScaler Certs
+COPY certificates/*.crt /usr/local/share/ca-certificates/
+COPY certificates/*.crt /etc/ssl/certs/
+RUN cat /etc/ssl/certs/*.crt >> /etc/ssl/certs/cbp_bundle.crt
+ENV SSL_CERT_DIR=/etc/ssl/certs/
+ENV SSL_CERT_FILE=/etc/ssl/certs/cbp_bundle.crt
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/cbp_bundle.crt
+ENV PIP_CERT=${REQUESTS_CA_BUNDLE}
+
+RUN apt-get update && \
+DEBIAN_FRONTEND=noninteractive apt-get -qq install wget curl ca-certificates
+RUN update-ca-certificates
+
+RUN pip install mysqlclient psycopg2-binary pyhive trino sqlalchemy-trino
+
+WORKDIR /superset
+COPY superset_init.sh /superset/
+RUN chmod a+x /superset/superset_init.sh
+
+# Switching back to using the `superset` user
+USER superset
+CMD ["/superset/superset_init.sh"]

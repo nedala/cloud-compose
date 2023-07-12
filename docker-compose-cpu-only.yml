@@ -1,0 +1,234 @@
+version: '3.8'
+
+services:
+  minio:
+    # Minio object storage that mimics s3/cloud
+    image: minio/minio
+    container_name: minio
+    hostname: minio
+    restart: always
+    ports:
+      - "4001:4001"
+      - "9001:9000"
+    command:
+      [
+        "server",
+        "--address",
+        ":9000",
+        "--console-address",
+        ":4001",
+        "/data"
+      ]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:9000/minio/health/live"
+        ]
+    volumes:
+      - minio_data:/data
+    networks:
+      - mlflow-network
+    environment:
+      MINIO_ROOT_USER: accesskey
+      MINIO_ROOT_PASSWORD: secretkey
+      AWS_ACCESS_KEY_ID: accesskey
+      AWS_SECRET_ACCESS_KEY: secretkey
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: sqlserver
+    hostname: sqlserver
+    restart: always
+    networks:
+      - mlflow-network
+    volumes:
+      - sqlvolume:/var/opt/mssql
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: b8:,x5u36$7xD(86
+      MSSQL_PID: Express
+
+  ops_sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: ops_sqlserver
+    hostname: ops_sqlserver
+    restart: always
+    ports:
+      - "1433:1433"
+    networks:
+      - mlflow-network
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: b8:,x5u36$7xD(86
+      MSSQL_PID: Express
+
+  mlflow:
+    # Experimenation tracking, artifactory, model serving architecture in one package
+    build:
+      context: .
+      dockerfile: ./spark_dockerfile
+    container_name: mlflow-jupyter
+    hostname: mlflow
+    restart: always
+    ports:
+      - "8888:8888"
+      - "8081:8080"
+      - "10000:10000"
+      - "5000:5000"
+      - "5001:5001"
+      - "4040:4040"
+      - "4041:4041"
+      - "9083:9083"
+    volumes:
+      - ./notebooks:/jupyter
+      - ./data/airports.csv.gz:/data/airports.csv.gz:ro
+      - ./core-site.xml:/opt/spark/conf/core-site.xml:ro
+      - ./core-site.xml:/opt/hadoop/conf/core-site.xml:ro
+      - ./core-site.xml:/opt/hive/conf/core-site.xml:ro
+      - ./dags:/opt/airflow/dags
+      - ./doc:/jupyter/markdoc
+      - ./huggingface:/root/.cache/huggingface # Preserve any huggingface model caches between runs
+      - mlflow_data:/opt/mlflow
+      - mlflow_experiments:/opt/mlflow/experiments
+      - mlflow_artifacts:/opt/mlflow/artifacts
+      - mlflow_models:/opt/mlflow/models
+      - mlflow_logs:/opt/mlflow/logs
+      - mlflow_registry:/opt/mlflow/registry
+      - mlflow_images:/opt/mlflow/images
+    networks:
+      - mlflow-network
+    depends_on:
+      - postgres
+      - minio
+      - sqlserver
+    environment:
+      MLFLOW_DB_HOST: postgres
+      MLFLOW_POSTGRES_USER: mlflow
+      MLFLOW_POSTGRES_PASSWORD: mlflow
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      MINIO_ACCESS_KEY: accesskey
+      MINIO_SECRET_KEY: secretkey
+      AWS_ACCESS_KEY_ID: accesskey
+      AWS_SECRET_ACCESS_KEY: secretkey
+      MINIO_HOST: http://minio:9000
+      MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT: s3://mlflow/artifacts
+      MLFLOW_SERVER_HOST: http://localhost:5000
+      AIRFLOW_HOME: /opt/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: False
+      SQL_HOST: sqlserver
+      HADOOP_CONF_DIR: /opt/hadoop/conf/
+
+  trino:
+    image: trinodb/trino:420
+    container_name: trino
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./trino_catalog/catalog/minio.properties:/etc/trino/catalog/minio.properties:ro
+      - ./trino_catalog/catalog/test_kafka.properties:/etc/trino/catalog/test_kafka.properties:ro
+      - ./trino_catalog/jvm.config:/etc/jvm.config
+      - ./trino_catalog/config.properties:/etc/config.properties
+      - ./trino_catalog/node.properties:/etc/node.properties
+      - ./core-site.xml:/etc/core-site.xml:ro
+      - trino_data:/var/trino/data
+    networks:
+      - mlflow-network
+    environment:
+      MINIO_ROOT_USER: accesskey
+      MINIO_ROOT_PASSWORD: secretkey
+      AWS_ACCESS_KEY_ID: accesskey
+      AWS_SECRET_ACCESS_KEY: secretkey
+
+  postgres:
+    image: postgres:13.3
+    container_name: postgres
+    hostname: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mlflow-network
+    environment:
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow
+      POSTGRES_DB: mlflow
+      PGDATA: /var/lib/postgresql/data/pgdata
+
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      - mlflow-network
+
+  kafka:
+    image: wurstmeister/kafka
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    networks:
+      - mlflow-network
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_CREATE_TOPICS: "stocks_trading_events:1:1"
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://:9092,OUTSIDE://192.168.27.174:9094
+      KAFKA_LISTENERS: INSIDE://:9092,OUTSIDE://:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+
+  superset:
+    # Visualization server
+    build:
+      context: .
+      dockerfile: ./superset_dockerfile
+    container_name: superset
+    ports:
+      - 8088:8088
+    networks:
+      - mlflow-network
+    depends_on:
+      - trino
+      - mlflow
+    environment:
+      - SUPERSET_SECRET_KEY=irockwiththebestkeys
+      - SUPERSET_HOME=/app/superset_home
+    volumes:
+      - ./superset:/app/superset_home
+
+  markdocs:
+    # Documentation server.
+    build:
+      context: .
+      dockerfile: ./mkdoc_dockerfile
+    container_name: mkdocs
+    volumes:
+      - ./doc:/docs # Add any markdown files from host and/or Jupyter container. Map a shared volume
+      - ./README.md:/docs/docs/index.md:ro
+      - ./screenshots:/docs/docs/screenshots/
+    ports:
+      - 8000:8000
+    networks:
+      - mlflow-network
+
+volumes:
+  minio_data:
+  mlflow_data:
+  mlflow_experiments:
+  mlflow_artifacts:
+  mlflow_models:
+  mlflow_logs:
+  mlflow_registry:
+  mlflow_images:
+  postgres_data:
+  trino_data:
+  sqlvolume:
+
+
+networks:
+  mlflow-network:
+    external: false

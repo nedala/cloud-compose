@@ -1,0 +1,6 @@
+cudatoolkit=11.8.0
+mkl
+setuptools
+jax
+distlib
+mlflow

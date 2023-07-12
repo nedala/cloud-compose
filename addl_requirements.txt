@@ -1,0 +1,15 @@
+opencv-python
+keras
+spacy
+streamlit
+whoosh
+findspark
+xgboost
+jaydebeapi
+pyodbc
+tqdm
+trino
+sqlalchemy-trino
+pyhive
+thrift
+kafka-python

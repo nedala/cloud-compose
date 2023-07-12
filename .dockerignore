@@ -1,0 +1,4 @@
+.huggingface
+.dags
+.jupyter_notebooks
+./notebooks/.ipynb*

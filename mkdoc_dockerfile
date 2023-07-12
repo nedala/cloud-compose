@@ -1,0 +1,16 @@
+FROM squidfunk/mkdocs-material:9.1
+
+# Add ZScaler Certs
+COPY certificates/*.crt /usr/local/share/ca-certificates/
+COPY certificates/*.crt /etc/ssl/certs/
+RUN cat /etc/ssl/certs/*.crt >> /etc/ssl/certs/cbp_bundle.crt
+ENV SSL_CERT_DIR=/etc/ssl/certs/
+ENV SSL_CERT_FILE=/etc/ssl/certs/cbp_bundle.crt
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/cbp_bundle.crt
+ENV PIP_CERT=${REQUESTS_CA_BUNDLE}
+
+VOLUME /docs
+WORKDIR /docs
+
+EXPOSE 8000
+ENTRYPOINT [ "mkdocs", "serve", "-a", "0.0.0.0:8000"]
