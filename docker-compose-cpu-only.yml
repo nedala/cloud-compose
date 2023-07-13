@@ -19,14 +19,6 @@ services:
         ":4001",
         "/data"
       ]
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "curl",
-          "-f",
-          "http://localhost:9000/minio/health/live"
-        ]
     volumes:
       - minio_data:/data
     networks:
@@ -48,7 +40,7 @@ services:
       - sqlvolume:/var/opt/mssql
     environment:
       ACCEPT_EULA: Y
-      MSSQL_SA_PASSWORD: b8:,x5u36$7xD(86
+      MSSQL_SA_PASSWORD: b8:,x5u36$$7xD(86
       MSSQL_PID: Express
 
   mlflow:
@@ -63,7 +55,7 @@ services:
       - "8888:8888"
       - "8081:8080"
       - "10000:10000"
-      - "5000:5000"
+      - "5002:5000"
       - "5001:5001"
       - "4040:4040"
       - "4041:4041"
@@ -103,7 +95,7 @@ services:
       MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT: s3://mlflow/artifacts
       MLFLOW_SERVER_HOST: http://localhost:5000
       AIRFLOW_HOME: /opt/airflow
-      AIRFLOW__CORE__LOAD_EXAMPLES: False
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       SQL_HOST: sqlserver
       HADOOP_CONF_DIR: /opt/hadoop/conf/
 
@@ -145,6 +137,21 @@ services:
       POSTGRES_DB: mlflow
       PGDATA: /var/lib/postgresql/data/pgdata
 
+  superset_postgres:
+    image: postgres:13.3
+    container_name: superset_postgres
+    hostname: superset_postgres
+    restart: always
+    volumes:
+      - superset_postgres_data:/var/lib/postgresql/data
+    networks:
+      - mlflow-network
+    environment:
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: superset
+      POSTGRES_DB: superset
+      PGDATA: /var/lib/postgresql/data/pgdata
+
   zookeeper:
     image: wurstmeister/zookeeper
     ports:
@@ -178,11 +185,11 @@ services:
     networks:
       - mlflow-network
     depends_on:
-      - trino
-      - mlflow
+      - superset_postgres
     environment:
       - SUPERSET_SECRET_KEY=irockwiththebestkeys
       - SUPERSET_HOME=/app/superset_home
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:superset@superset_postgres:5432/superset
     volumes:
       - ./superset:/app/superset_home
 
@@ -211,6 +218,7 @@ volumes:
   mlflow_registry:
   mlflow_images:
   postgres_data:
+  superset_postgres_data:
   trino_data:
   sqlvolume:
 

@@ -1,5 +1,8 @@
 #!/bin/bash
-superset init
+set -e
+echo "SQLALCHEMY_DATABASE_URI=\"${SQLALCHEMY_DATABASE_URI}\"" > /app/superset/superset_config.py
+export PYTHONPATH=/app/superset:$PYTHONPATH
+superset db upgrade
 superset fab create-admin \
               --username admin \
               --firstname Superset \
